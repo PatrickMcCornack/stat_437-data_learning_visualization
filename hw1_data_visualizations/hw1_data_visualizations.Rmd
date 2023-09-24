@@ -1,0 +1,164 @@
+---
+title: "Stat 437 HW1"
+author: 
+     - Pat McCornack (11516300)
+header-includes:
+   - \usepackage{bbm}
+   - \usepackage{amssymb}
+   - \usepackage{amsmath}
+   - \usepackage{graphicx,float}
+   - \usepackage{natbib}
+output:
+  pdf_document: default
+fontsize: 11pt
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+# Problem 1
+
+## Data Pre-processing
+
+Manipulate the data to subset and obtain sample means for each month/carrier combination.
+
+```{r}
+library(tidyverse)
+library(nycflights13)
+library(ggplot2)
+
+# Subset to data of interest 
+flights.subset <- flights %>% select(c(month, arr_delay, carrier, distance)) %>% 
+  filter((month %in% c(12, 1, 2, 6, 7, 8)), (carrier %in% c('UA', 'AA', 'DL')),
+         (distance >= 700))
+  
+# remove NAs 
+flights.subset <- na.omit(flights.subset)
+
+# Group data and obtain sample means
+avg.arr.delay <- flights.subset %>% group_by(month, carrier) %>% 
+  summarise(mean_arr_delay = mean(arr_delay)) %>%
+  as.data.frame()
+
+head(avg.arr.delay)
+```
+
+## 1.a Arrival Delay Density Plot
+
+The density plot does not support the idea that colder months result in longer arrival delays. Most of the longest delays occurred during the summer while the majority of flights during January and February weren't delayed more than five minutes. December did tend to have longer delays. Overall this plot does not indicate that there is a strong seasonal pattern in arrival delays.
+
+```{r}
+avg.arr.delay$month <- as.factor(avg.arr.delay$month)
+avg.arr.delay$carrier <- as.factor(avg.arr.delay$carrier)
+ggplot(avg.arr.delay, aes(x = mean_arr_delay, color = month)) +
+  geom_density() +
+  labs(x = 'Mean Arrival Delay', y = 'Density', color = 'Month') +
+  theme_bw()
+
+```
+
+## 1.b Arrival Delay Boxplot
+
+United Airlines (UA) typically had longer delays than either American Airlines (AA) or Delta (DL). About 75% of United Airlines flights had longer arrival delays than the median arrival delays of the others. The median values of American Airlines and Delta were closer, but Delta had a much higher spread in arrival delays than American Airlines. While some of Deltas flights had lower arrival times than the American Airlines, American Airlines had more consistent delays with most being under five minutes. 
+
+```{r}
+ggplot(avg.arr.delay, aes(x = carrier, y = mean_arr_delay)) +
+  geom_boxplot() + 
+  labs(title = 'Mean Arrival Delay by Carrier', 
+       x = 'Carrier',
+       y = 'Mean Arrival Delay') +
+  theme_bw()
+```
+
+## 1.c Arrival Delay Pie Chart
+```{r}
+library(scales)
+
+# Obtain proportions
+carrier.prop <- flights.subset %>% group_by(carrier) %>%
+  count() %>% ungroup() %>% 
+  mutate(percentage = (n / sum(n))) %>% 
+  arrange(desc(carrier))
+
+carrier.prop$labels <- scales::percent(carrier.prop$percentage)
+
+
+# Create the pie chart
+ggplot(carrier.prop) + 
+  geom_bar(aes(x = "", y = percentage, fill = carrier), color = 'black', stat = 'identity',
+           width = 1) +
+  scale_fill_brewer(palette = 'Set2') +
+  coord_polar("y", start = 0) +
+  theme_void() + 
+  geom_text(aes(x = 1, y = cumsum(percentage) - percentage/2, label = labels)) +
+  labs(title = 'Percentage of Observations by Carrier')
+  
+```
+
+
+
+## 1.d Arrival Delay vs. Distance
+
+```{r}
+flights.subset$carrier <- as.factor(flights.subset$carrier)
+ggplot(flights.subset, aes(distance, arr_delay)) + 
+  geom_point() + 
+  facet_grid(month ~ carrier) +
+  labs(title = 'Distance vs. Arrival Delay',
+       subtitle = 'Faceted by carrier and month',
+       x = 'Distance',
+       y = 'Arrival Delay') + 
+  theme_bw()
+```
+
+## 1.e Avg. Distance vs. Arrival Delay
+
+```{r}
+# Create dataframe with means of arr_delay and distance 
+library(viridis)
+df <- flights.subset %>% group_by(month, carrier) %>%
+  summarise(mean_arr_delay = mean(arr_delay), mean_distance = mean(distance)) %>%
+  as.data.frame()
+
+ggplot(df, aes(month, mean_arr_delay)) + 
+  geom_point(aes(color = mean_distance, shape = carrier)) + 
+  geom_text(aes(label = carrier), nudge_x = .3,  size = 2.5) +
+  labs(title = 'Mean Arrival Delay by Month', 
+       x = 'Month', 
+       y = 'Mean Arrival Delay',
+       color = 'Mean Distance',
+       shape = ' Carrier') +
+  scale_x_continuous(breaks = seq(2,12,2)) +
+  scale_color_viridis() +
+  theme_bw()
+
+```
+
+# Problem 2
+
+```{r}
+ggplot(mpg, aes(displ, hwy)) +
+  geom_point(aes(color = class, shape = trans)) +
+  labs(title = 'Engine Displacement vs. Highway MPG',
+       subtitle = 'Faceted by drive train and number of cylinders',
+       x = "Engine displacement",
+       y = "Highway MPG",
+       color = "Class", 
+       shape = "Transmission") + 
+  facet_grid(drv ~ cyl) +
+  theme_bw()
+
+```
+
+
+
+
+
+
+
+
+
+
+

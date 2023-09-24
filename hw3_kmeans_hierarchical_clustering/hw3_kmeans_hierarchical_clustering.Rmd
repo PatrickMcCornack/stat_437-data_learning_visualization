@@ -1,0 +1,252 @@
+---
+title: "STAT 437 HW 3"
+output: html_document
+date: "2023-03-05"
+---
+
+```{r, echo=FALSE, warning=FALSE}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+```
+
+__NOTE__: Homework questions and instructions have been _italicized_ for clarity.
+
+# Conceptual exercises
+
+\noindent
+__1.__ _Consider the K-means clustering methodology._
+ 
+__1.1)__ _Give a few examples of dissimilarity measures that can be used to measure how dissimilar two observations are. What is the main disadvantage of the squared Euclidean distance as a dissimilarity measure?_ 
+
+A few measures of similarity are the euclidean distance, the manhattan distance, and the correlation distance. 
+
+The main disadvantage of the squared Euclidean distance is that it is sensitive to outliers. Large distances will have an outsized influence on the results. 
+
+
+
+__1.2)__ _Is it true that standardization of data should be done when features are measured on very different scales? Is it true that employing more features gives more accurate clustering results? Is it true that employing standardized observations gives more accurate clustering results than employing non-standardized ones? Explain each of your answers._
+
+Standardization of data should be done when features are measured on different scales. This ensures that that features don't have an outsized impact because of their units.
+
+Employing more features does not necessarily give more accurate clustering results. This is related to the curse of dimensionality - if you employ more features, you must have many more observations. 
+
+Employing standardized observations generally will improve clustering results for the same reason mentioned above - it ensures that features are weighted equally. If the units of all features are already the same, then it is not necessary. 
+
+
+__1.3)__ _Take $K=2$. Provide the loss function that K-means clustering tries to minimize. You need to provide the definition and meaning of each term that appears in the loss function._ 
+
+
+W(C) = $\Sigma_1 d^2(x_i, x\bar_1) + \Sigma_2 d^2(x_i,x\bar_2)$
+ 
+W(C) is the loss of the mapping C
+
+The first summand is the variance within that cluster - that is, the sum of the euclidean distances between each point and the sample mean of that cluster. 
+
+The second summand is the same for the second cluster. 
+
+__1.4)__ _What is the "centroid" for a cluster? Is the algorithm, Algorithm 10.1 on page 388 of the Text (which is also provided in the lecture slides), guaranteed to converge to the global minimum of the loss function? Why or why not? What does the argument `nstart` refer to in the command `kmeans`? Why is `nstart` suggested to take a relatively large value? Why do you need to set a random seed by `set.seed()` before you apply `kmeans`?_
+
+The centroid of the cluster is the coordinate associated with the mean values among observations in the cluster of the p features in the data. It is representative of the center of that cluster. The algorithm is not guaranteed to converge to a global minimum. It may converge to a local minimum at which point the cluster assignments stop changing, but that local minimum may not match the global minimum. This is because  
+
+
+__1.5)__ _Suppose there are 2 underlying clusters but you set the number of clusters to be different than $2$ and apply `kmeans`, will you have good clustering results? Why or why not?_
+
+The cluster results will not never be accurate if the number of clusters is set to be different than the true number of underlying clusters. If K=2, then the best case scenario is that one of the clusters will be entirely identified and the other will be split into two. This could still be informative for data exploration.  
+
+__1.6)__ _Is the true number $K_0$ of clusters in data known? When using the command `clusGap` to estimate $K_0$, what does its argument `B` refer to?_
+
+The true number of clusters in data is generally unknown. B is the number of samples (resampled with replacement, i.e. 'bootstrap' samples) that the clusGap function iwll use to estimate the true number of clusters. 
+
+\noindent
+__2.__ _Consider hierarchical clustering._
+
+_2.1)_ _What are some advantages of hierarchical clustering over K-means clustering? What is the relationship between the dissimilarity between two clusters and the height of these clusters in the dendrogram that represents a bottom-up tree?_
+
+Hierarchical clustering does not require that the number of the clusters is specified and the resultant clusters don't depend on the configuration of initially chosen clusters as in kmeans. 
+
+The height represents the dissimilarity between clusters at which point they are fused. 
+
+__2.2)__ _Explain what it means by saying that "the clusters obtained at different heights from a dendrogram are nested". If a data set has two underlying clustering structures that can be obtained by two different criteria, will these two sets of clusters necessarily be nested? Explain your answer._
+
+The bottom-up approach of hierarchical clustering involves sequentially joining clusters together. A cluster higher up in the tree consists of a previous set of clusters that have been joined, so those clusters are nested in the higher cluster. Hiearchical clustering will produce nested clusters, but that nesting structure may not necessarily be representative of the underlying structure. Hiearchical clustering does not work well if the clusters are mutually exclusive. 
+
+__2.3)__ _Why is the distance based on Pearson's sample correlation not effected by the magnitude of observations in terms of Euclidean distance? What is the definition of average linkage? Why are average linkage and complete linkage preferred than single linkage in practice?_
+
+Pearsons sample correlation is calculated using standardized values, which removes the influence of magnitude. 
+
+Linkage is a measure of inter-cluster dissimilarity. Average linkage computes the average of all dissimilarities between the observations of two clusters. Single linkage is not preferred because of its tendency to produce long, trailing clusters by adding a single observation to the cluster each time. 
+
+__2.4)__ _What does the command `scale` do? Does `scale` apply row-wise or column-wise? When `scale` is applied to a variable, what will happen to the observations of the variable?_
+
+Scale is used to standardize columns - i.e. it is applied column-wise. The observations of a feature that scale is applied to first have the feature's mean subtracted from them then are divided by the features standard deviation. This centers and scales the observations - i.e. standardizes them. 
+
+__2.5)__ _What is `hclust$height`? How do you find the height at which to cut a dendrogram in order to obtain $5$ clusters?_
+
+hclust$height is a set of heights that are equal to the dissimilarity measure at each stage of agglomeration. To find the height at which to cut the dendrogram to obtain 5 clusters one would take the 4th to last value in the height.
+
+__2.6)__ _When creating a dendrogram, what are some advantages of the command `ggdendrogram{ggdendro}` over the R base command `plot`?_
+
+ggdendrogram creates cleaner visualizations of the dendrogram than the base command. This includes advantages in label presentation and coloring by cluster. 
+
+
+# Applied exercises
+
+\noindent
+__3.__ _Please refer to the NYC flight data `nycflights13` tfhat has been discussed in the lecture notes and whose manual can be found at https://cran.r-project.org/web/packages/nycflights13/index.html. We will use `flights`, a tibble from `nycflights13`._
+```{r}
+library(nycflights13)
+library(tidyverse)
+```
+
+_Select from `flights` observations that are for 3 `carrier` "UA", "AA" or "DL", for `month` 7 and 2, and for 4 features `dep_delay`, `arr_delay`, `distance` and `air_time`. Let us try to see if we can use the 4 features to identify if an observation belongs a specific carrier or a specific month. The following tasks and questions are based on the extracted observations. Note that you need to remove `na`'s from the extracted observations._
+
+```{r}
+flights.df <- flights %>% 
+  select(carrier, month, dep_delay, arr_delay, distance, air_time) %>%
+  filter(carrier %in% c('UA', 'AA', 'DL'), month %in% c(7, 2)) %>% 
+  na.omit()
+
+flights.df$carrier <- as.factor(flights.df$carrier)
+flights.df$month <- as.factor(flights.df$month)
+```
+
+__3.1)__ _Apply K-means with $K=2$ and $3$ respectively but all with `set.seed(1)` and `nstart=20`. For $K=3$, provide visualization of the clustering results based on true clusters given by `carrier`, whereas for $K=2$, provide visualization of the clustering results based on true clusters given by `month`. Summarize your findings based on the clustering results. You can use the same visualization scheme that is provided by Example 2 in "LectureNotes3_notes.pdf". Try visualization based on different sets of 2 features if your visualization has overlayed points.set.seed(1)_
+
+__Perform Clustering__
+```{r}
+set.seed(1)
+
+km.clus.2 <- kmeans(flights.df[3:6], 2, nstart = 20)
+km.clus.3 <- kmeans(flights.df[3:6], 3, nstart = 20)
+
+flights.df$kmclus2 <- factor(km.clus.2$cluster)
+flights.df$kmclus3 <- factor(km.clus.3$cluster)
+```
+
+__K = 2 Visualization__
+
+Attempting to cluster the observations to to identify the month in which they occurred did not yield useful results. The plots do not show a trend indicating that the clustering was successful and the confusion matrix confirms this. Around half of the observations were clustered wrong which is not pretty than the trivial solution of flipping a coin to assign labels. 
+
+```{r}
+# k = 2
+ggplot(flights.df) +
+  geom_point(aes(dep_delay, distance, color = kmclus2, shape = month)) +
+  labs(x = 'Departure Delay', 
+       y = 'Distance',
+       title = "K = 2",
+       subtitle = 'Departure Delay vs. Distance') +
+  theme_bw()
+
+
+ggplot(flights.df) +
+  geom_point(aes(arr_delay, air_time, color = kmclus2, shape = month)) +
+  labs(x = 'Arrival Delay', 
+         y = 'Air Time',
+         title = "K = 2",
+         subtitle = 'Arrival Delay vs. Air Time') +
+  theme_bw()
+
+ggplot(flights.df) +
+  geom_point(aes(dep_delay, arr_delay, color = kmclus2, shape = month)) +
+  labs(x = 'Departure Delay', 
+       y = 'Arrival Delay',
+       title = "K = 2",
+       subtitle = 'Departure Delay vs. Arrival Delay') +
+  theme_bw()
+
+table(flights.df$kmclus2, flights.df$month)
+
+```
+__K = 3 Visualization__
+
+The results for the k = 3 clustering are similar to the results of the k = 2 clustering. There is no perceivable trend, and the clusters do not capture any meaningful pattern in the data. This is unsurprising, given that no trend appears to exist in the data in the first place. Notably, the clustering did capture that one group of data, the UA data, tended to have longer flights both in terms of distance and air time. This is reflected in the blue clusters. 
+```{r}
+# k = 3
+ggplot(flights.df) +
+  geom_point(aes(dep_delay, distance, color = kmclus3, shape = carrier)) +
+  labs(x = 'Departure Delay', 
+       y = 'Distance',
+       title = "K = 3",
+       subtitle = 'Departure Delay vs. Distance') +
+  theme_bw()
+
+
+ggplot(flights.df) +
+  geom_point(aes(arr_delay, air_time, color = kmclus3, shape = carrier)) +
+  labs(x = 'Arrival Delay', 
+         y = 'Air Time',
+         title = "K = 3",
+         subtitle = 'Arrival Delay vs. Air Time') +
+  theme_bw()
+
+ggplot(flights.df) +
+  geom_point(aes(dep_delay, arr_delay, color = kmclus3, shape = carrier)) +
+  labs(x = 'Departure Delay', 
+       y = 'Arrival Delay',
+       title = "K = 3",
+       subtitle = 'Departure Delay vs. Arrival Delay') +
+  theme_bw()
+
+table(flights.df$kmclus3, flights.df$carrier)
+
+```
+
+
+__3.2)__ _Use `set.seed(123)` to randomly extract 50 observations, and to these 50 observations, apply hierarchical clustering with average linkage. (i) Cut the dendrogram to obtain 3 clusters with leafs annotated by `carrier` names and resulting clusters colored distinctly, and report the corresponding height of cut. (ii) In addition, cut the dendrogram to obtain 2 clusters with leafs annotated by `month` numbers and resulting clusters colored distinctly, and report the corresponding height of cut. Here are some hints: say, you save the randomly extracted 50 observations into an object `ds3sd`, for these observations save their `carrier` names by keeping their object type but save `month` numbers as a `character` vector, make sure that `ds3sd` is a `matrix`, transpose `ds3sd` into `tmp`, assign to `tmp` column names with their corresponding carrier names or month numbers, and then transpose `tmp` and save it as `ds3sd`; this way, you are done assigning cluster labels to each observation in `ds3sd`; then you are ready to use the commands in the file `Plotggdendro.r` to create the desired dendrograms._
+
+__i) Dendrogram for k = 3__
+
+The height of the cut to obtain 3 clusters was 2.036.
+
+```{r}
+library(ggdendro)
+set.seed(123)
+
+# Subset the data and prepare for ggdendro
+flights.sample <- flights.df[sample(1:nrow(flights.df), 50),] %>% select(1:6)
+carriers <- flights.sample$carrier
+months <- as.character(flights.sample$month)
+flights.sample <- as.matrix(flights.sample[-(1:2)])
+tmp <- as.data.frame(t(flights.sample))
+
+# Assign column names to carrier label
+colnames(tmp) <- carriers
+carriers.sample <- t(tmp)
+
+# Calculate dissimilarity measure
+carriers.dissm <- dist(scale(carriers.sample))
+
+# Implement the hierachical clustering
+hc.avg <- hclust(carriers.dissm, method = 'average')
+# ggdendrogram(hc.avg, rotate = F)
+
+source("C:/Plotggdendro.r")
+cutheight = hc.avg$height[length(hc.avg$height)-3]
+droplot = plot_ggdendro(dendro_data_k(hc.avg, 3), direction = "tb", heightReferece=cutheight, expand.y = 0.2)
+droplot
+print(cutheight)
+```
+
+__ii) Dendrogram for k = 2__
+
+The height of cut to obtain 2 clusters was 2.62.
+
+```{r}
+# Assign column names to month label
+tmp <- as.data.frame(t(flights.sample))
+colnames(tmp) <- months 
+months.sample <- t(tmp)
+
+# Calculate dissimilarity measure
+months.dissm <- dist(scale(months.sample))
+
+# Implement the hierachical clustering
+hc.avg <- hclust(months.dissm, method = 'average')
+# ggdendrogram(hc.avg, rotate = F)
+
+
+cutheight = hc.avg$height[length(hc.avg$height)-2]
+droplot = plot_ggdendro(dendro_data_k(hc.avg, 2), direction = "tb", heightReferece=cutheight, expand.y = 0.2)
+droplot
+print(cutheight)
+```
